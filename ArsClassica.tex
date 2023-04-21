@@ -1,4 +1,4 @@
-\documentclass[10pt,a4paper,twoside,openright,titlepage,fleqn,%
+\documentclass[10pt,a4paper,dvipsnames,oneside,openright,titlepage,fleqn,%
                headinclude,,footinclude,BCOR5mm,%
                numbers=noenddot,cleardoublepage=empty,%
                tablecaptionabove]{scrreprt}
@@ -20,8 +20,22 @@
 \usepackage{fixltx2e}
 \usepackage{relsize}
 \usepackage{lipsum}
+\usepackage{tikz}
+\usetikzlibrary{intersections}
 \usepackage[eulerchapternumbers,subfig,beramono,eulermath,pdfspacing,listings]{classicthesis}
+
+\usepackage[dvipsnames]{xcolor}
+
 \usepackage{arsclassica}
+\usepackage{amsthm}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+
+\usetikzlibrary{arrows.meta, positioning, calc, decorations.pathmorphing, shapes}
 
 \input{arsclassica-settings}
 
@@ -44,7 +58,10 @@
 % Mainmatter
 %******************************************************************
 \pagenumbering{arabic}
-\input{Chapters/Fundamentals}
+\input{Chapters/1-Optimal Transport}
+\input{Chapters/2-GANs}
+\input{Chapters/3-WGANs}
+
 % *****************************************************************
 % Backmatter
 %******************************************************************

@@ -1,0 +1,101 @@
+%************************************************
+\chapter{Wasserstein GANs}
+\label{chp:WGANs}
+%************************************************
+
+Despite their success, GANs suffered from issues such as mode collapse, vanishing gradients, and unstable training dynamics. In this chapter, we introduce Wasserstein Generative Adversarial Networks (WGANs), a variant of GANs that addresses some of these challenges using the Wasserstein distance as the loss function.
+
+\section{Wasserstein Distance in WGANs}
+
+The main idea behind WGANs is to replace the traditional loss function used in GANs, which is based on Kullback-Liebler or Jensen-Shannon divergences, with the Wasserstein distance. The Wasserstein distance between two probability distributions $P_r$ and $P_g$ is defined as:
+
+\begin{equation}
+W(P_r, P_g) = \inf_{\gamma \in \Pi(P_r, P_g)} \mathbb{E}_{(x, y) \sim \gamma} [\lVert x - y \rVert],
+\end{equation}
+
+By using the Kantorovich-Rubinstein duality, the Wasserstein distance can be reformulated as:
+
+\begin{equation}
+W(P_r, P_g) = \sup_{\lVert h \rVert_{L \leq 1}} \mathbb{E}_{x \sim P_r} [h(x)] - \mathbb{E}_{x \sim P_g} [h(x)],
+\end{equation}
+
+where the supremum is taken over all 1-Lipschitz functions.
+
+\section{WGAN Architecture and Objective Function}
+
+For WGANs, we refer to the Discriminator $D$ as the "critic". This is because unlike with GANs, which use the Discriminator to predict which of the generated images is sampled from the real data distribution $P_r$ and which are from the generated data distribution $P_g$ by choosing a value in $[0,1]$, the critic estimates the Wasserstein distance between the generated image and the real (sampled) image.
+
+The objective function for the WGAN can be written as:
+
+\begin{equation}
+\min_{G} \max_{D \in \mathcal{D}} \mathbb{E}_{x \sim P_r} [D(x)] - \mathbb{E}_{z \sim P_z} [D(G(z))]
+\end{equation}
+
+where $\mathcal{D}$ is the set of all 1-Lipschitz functions, $G$ is the generator, and $D$ is the critic. $z$ is sampled from prior distribution $P_z$ (typically a Gaussian) and $G$ is chosen so that $G(z)\sim P_g$. As in Kantorovich-Rubenstein duality, $\mathcal{D}$ is the set of 1-Lipschitz functions.
+
+One way to interpret this loss function, is that the discriminator wants to maximise the Wasserstein distance between the generated data and the real data and at the same time the generator wants to minimise this distance.
+
+\section{Enforcing the Lipschitz Constraint}
+
+To ensure the critic is 1-Lipschitz, WGANs enforce a constraint on the critic's weights. There are two common ways to enforce this constraint: weight clipping and gradient penalty.
+
+\subsection{Weight Clipping}
+
+The original WGAN paper proposed using weight clipping, which simply involves clipping the weights of the critic to a compact set $[-c,c]$. The set of functions satisfying this constraint is a subset of the set of $k$-Lipschitz functions for some $k$ depending on $c$ and the model architecture. The training procedure is then modified to include a weight clipping step after each update of the critic's weights. This method can be effective but may result in underfitting or other undesired behaviors.
+
+\subsection{Gradient Penalty}
+
+An alternative approach to enforcing the Lipschitz constraint is to use the gradient penalty. This method adds a regularization term to the critic's loss function, which penalizes deviations of the gradient norm from 1:
+
+\begin{equation}
+L_{GP} = \mathbb{E}{\hat{x} \sim P{\hat{x}}} [(\lVert \nabla_{\hat{x}} D(\hat{x}) \rVert_2 - 1)^2],
+\end{equation}
+where $x$ is a point sampled uniformly along a straight line between a real data point and a generated data point, i.e., $x=\alpha x+(1-\alpha)G(z)$ with $\alpha\sim U(0,1)$ being a random interpolation coefficient.
+
+The overall objective function for the WGAN with gradient penalty (WGAN-GP) becomes:
+
+\begin{equation}
+\min_{G} \max_{D} \mathbb{E}{x \sim P_r} [D(x)] - \mathbb{E}{z \sim P_z} [D(G(z))] + \lambda L_{GP},
+\end{equation}
+
+where $\lambda$ is a hyperparameter that controls the strength of the gradient penalty. The gradient penalty approach has been shown to yield better results than weight clipping and is widely used in practice.
+
+\section{Training WGANs}
+
+Training WGANs follows an alternating update strategy, similar to traditional GANs. However, there are a few key differences:
+
+    The critic is updated more frequently than the generator. This is usually done using a ratio, such as 5 critic updates for each generator update. This ensures that the critic provides a more accurate estimation of the Wasserstein distance before the generator is updated.
+
+    The learning rate is typically set lower than in traditional GANs, which helps improve the stability of the training process.
+
+    The use of batch normalization in the critic is discouraged, as it can interfere with the enforcement of the Lipschitz constraint. Layer normalization or other normalization techniques can be used instead.
+
+\section{Performance Gains of WGANs}
+
+WGANs offer several performance gains over traditional GANs due to the use of the Wasserstein distance and the enforcement of the Lipschitz constraint. These improvements stem from the following aspects:
+
+    \textbf{Smoother gradient landscape:} The Wasserstein distance provides a smoother gradient landscape compared to KL or JS divergences. In traditional GANs, vanishing gradients can occur when the supports of the real and generated data distributions do not overlap or have minimal overlap. This can lead to mode collapse or instability during training. WGANs, on the other hand, provide more informative gradients that help the generator and critic learn more effectively, even when the supports do not overlap.
+
+    \textbf{Meaningful loss function:} The Wasserstein distance as a loss function has a more direct relationship with the quality of generated samples. As the Wasserstein distance decreases, the generated samples tend to improve visually and semantically. In contrast, the loss functions based on KL or JS divergences may not exhibit such a clear relationship with the quality of the generated samples.
+
+    \textbf{Improved training stability:} Enforcing the Lipschitz constraint on the critic helps prevent the critic from becoming too powerful, leading to a more balanced training process. In traditional GANs, the discriminator can become too strong, overpowering the generator and leading to instability during training. The improved stability in WGANs generally results in higher quality generated samples.
+
+    \textbf{Robustness to network architecture:} WGANs are more robust to the choice of network architecture and hyperparameters compared to traditional GANs. This property allows researchers to explore a wider range of architectures and settings, increasing the chances of discovering effective models.
+
+\section{Improvements and Alternatives to WGANs}
+
+While WGANs have made significant progress in addressing some of the challenges of training GANs, there is still room for improvement and exploration of alternative generative models.
+
+    \textbf{Improved Lipschitz constraint enforcement:} Current methods for enforcing the Lipschitz constraint, such as weight clipping and gradient penalty, have their limitations. Weight clipping can lead to underfitting, while gradient penalty adds an extra computational cost during training. Developing more efficient and effective methods for enforcing the Lipschitz constraint could further improve the performance of WGANs.
+
+    \textbf{Conditional WGANs:} Extending WGANs to conditional settings, where the generated samples are conditioned on additional input information, can enable more controlled generation of samples. This can be achieved by incorporating the conditioning information into both the generator and the critic.
+
+    \textbf{Other GAN variants:} There are numerous GAN variants that aim to address different aspects of the traditional GANs' limitations. Some notable examples include Spectral Normalization GANs (SN-GANs), which enforce Lipschitz constraint using spectral normalization, and Self-Attention GANs (SAGANs), which incorporate self-attention mechanisms to capture long-range dependencies within the data.
+
+    \textbf{Diffusion models:} Apart from GANs, diffusion models have emerged as another promising class of generative models. These models, such as denoising score matching and contrastive divergence, learn the data distribution by simulating a diffusion process that gradually adds noise to the data points. By learning to reverse this process, diffusion models can generate high-quality samples without the adversarial training dynamics of GANs.
+
+Overall, the field of generative modeling is rapidly evolving, with WGANs being an important step towards more stable and effective generative models. Continued research on improving WGANs and exploring alternative gener
+
+\section{Conclusion}
+
+Wasserstein GANs address some of the key challenges associated with training traditional GANs by using the Wasserstein distance as the loss function. This leads to improved training stability, a more meaningful loss function, and a smoother gradient landscape, which in turn results in higher quality generated samples. By enforcing the Lipschitz constraint on the critic, either through weight clipping or gradient penalty, WGANs can achieve better performance than their traditional counterparts, making them a powerful tool for generative modeling tasks.

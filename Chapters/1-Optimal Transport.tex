@@ -1,0 +1,191 @@
+%************************************************
+\chapter{Optimal Transport}
+\label{chp:optimal-transport}
+%************************************************
+
+\newcommand{\X}{\mathcal{X}}
+
+Optimal transport theory is concerned with finding the cost minimising map that transfers the mass of one probability distribution to another target distribution. Usually this is described using an "earth moving" analogy, where a pile of dirt (representing a distribution) is moved piece by piece to fill a hole (i.e. the target distribution) elsewhere. This earth moving process has a cost associated with it, which is usually proportional to the distance moved.
+
+Rather than actually being primarily concerned with earth moving, Optimal Transport theory also has applications to partial differential equations, geometry, functional analysis and in data science, to imaging sciences and machine learning. In this paper, we intend to explore examples of the latter case, namely machine learning for image generation.
+
+\begin{figure}
+\caption{T maps $\mu$ to $\nu$}
+\centering
+\begin{tikzpicture}[scale=1.0] % Increase the scale factor to double the width
+  % Probability density function mu (centered)
+  \draw[thick, blue, domain=-1.5:1.5] plot ({1 + \x}, {1.5*exp(-2*\x*\x)});
+  \fill[blue!20, domain=-1.5:1.5] plot ({1 + \x}, {1.5*exp(-2*\x*\x)}) -- (2.5, 0) -- (-0.5, 0) -- cycle;
+  \node[black,font=\scriptsize, yshift=10pt] at (1.2,0.8) {$\mu$}; % Label for the centered probability density function mu
+
+  % Probability density function nu (centered, flat distribution: constant zero, constant one, constant zero, flipped upside down)
+  \draw[thick, red] (6.2, 1) -- (7, 1); % Top edge of the rectangle, starting at (6.2,1) and ending at (7,1)
+  \draw[thick, red] (7, 1) -- (7, 0); % Right edge of the rectangle, starting at (7,1) and ending at (7,0)
+  \draw[thick, red] (7, 0) -- (9, 0); % Bottom edge of the rectangle, starting at (7,0) and ending at (9,0)
+  \draw[thick, red] (9, 0) -- (9, 1); % Left edge of the rectangle, starting at (9,0) and ending at (9,1)
+  \draw[thick, red] (9, 1) -- (9.8, 1); % Top edge of the rectangle, completing the rectangle, starting at (9,1) and ending at (9.8,1)
+  \fill[red!20] (7, 1) rectangle (9, 0); % Fills the rectangle with red color, starting at (7,1) and ending at (9,0)
+  \node[black,font=\scriptsize, yshift=10pt] at (8,0.8) {$\nu$}; % Label for the centered probability density function nu
+
+  % Optimal transport map T
+  \draw[-{Latex[length=3mm,width=2mm]}, shorten >=7pt, shorten <=7pt] (3, 0.5) -- node[midway,below,font=\scriptsize] {$T$} (6, 0.5); % Draws the optimal transport map T
+\end{tikzpicture}
+\end{figure}
+
+%% What is optimal transport
+
+\section{The Monge-Kantorovich transportation problem}
+
+The mathematical formulation of Optimal Transportation takes two forms, called the Monge formulation and the Kantorovich formulation. In both formulations you have a source measure $\mu$ and a target measure $\nu$, both of which are measures on a metric spaces $X$ and $Y$ respectively. We refer to the set of all measures on $X$ and $Y$ as $\mathcal{M}(X)$ and $\mathcal{M}(Y)$ respectively. In addition, it is assumed that the total mass of both distributions are equal, in other words $\mu(X) = \nu(Y)$.
+
+Lastly, we also require a continuous cost function $c: X \times Y \rightarrow \mathbb{R}$ which represents the cost of moving mass from $x$ to $y$. We then integrate this cost function over all possible trajectories that transfer mass from source to target and minimise this total cost. Very often, this cost function is related to a metric on the metric spaces $X$ and $Y$. Cost functions are also generally convex.
+
+\subsection{The Monge Problem}
+
+One of the key details in the Monge interpretation is the use of a "push-forward" map. The purpose of this map is to shift the mass from the source distribution to the target distribution in a mass preserving way, and you express this property via a relationship between the transfer map $T: X \rightarrow Y$ and the target distribution $\nu$.
+
+Importantly, we need the transfer map to shift the source distribution $\mu$ to the target $\nu$, and additionally we require $T$ to be continuous.
+
+\begin{definition}[Push-forward]
+For $T: X \rightarrow Y$, the push-forward measure $\nu = T_{\#}\mu \in \mathcal{M}(Y)$ for some $\mu \in \mathcal{M}(X)$ satisfies $\forall h \in \mathcal{C}(Y)$:
+
+$$\int_Y h(y) d \nu(y) = \int_X h(T(x)) d\mu(x)$$
+
+Equivalently, for any measurable set $B \subset Y$ one has:
+
+$$\nu(B) = \mu({x \in X: T(x) \in B}) = \mu(T^{-1}(B))$$
+
+Note that $T_{\#}$ preserves positivity and total mass so that if $\alpha \in \mathcal^{1}_{+}(X)$ then $T_{\#}\mu \in \mathcal{M}_{+}^{1} (Y)$.
+
+\end{definition}
+
+Now that we have finished the relevant setup, we are ready to write down the Monge formulation of Optimal Transport.
+
+\begin{definition}[The Monge Problem]
+
+The Monge problem attempts to find the transfer map that minimises the total cost of transferring mass from $\mu$ to $\nu$, which we express in the following way:
+
+$$ \min_{T} \left\{ \int_X c(x, T(x)) d\mu(x) : T_{\#} \mu = \nu \right\}$$
+
+The constraint $T_\# \mu = \nu$ means that $T$ pushes forward the mass of $\mu$ to $\nu$. $c(x, T(x))$ is the cost of shifting mass from $x$ to $T(x)$.
+
+\end{definition}
+
+\subsubsection{Limitations}
+
+% If there are two formulations, why do we need another one?
+
+One limitation of the Monge formulation is that masses are indivisible because the transport map is a function $T(x) = y$. In some situations, it might make sense to split mass into pieces and divide those pieces across the target distribution $\nu$ (for example: earth-moving, money, etc). In such cases, a transfer map is not going to exist and we require something more general.
+
+\subsection{The Kantorovich Problem}
+
+Since it does not assume the existence of a transport map, the Kantorovich formulation is more general than Monge and it achieves this using the concept of \textit{product measure}.
+
+\begin{definition}[Product measure]
+
+A product measure is a measure defined on the cartesian product of two measurable spaces $\mathcal{X}$ and $\mathcal{Y}$. Letting $\mu$ and $\nu$ be measures on $\mathcal{X}$ and $\mathcal{Y}$ respectively, the product measure $\pi_{XY}$ is defined on the product space $\mathcal{X \times Y}$ in the following manner:
+
+$$\pi(A \times B) = \mu(A) \nu(B)$$
+
+for all $A \in \mathcal{X}$ and $B \in \mathcal{Y}$, where $A \times B$ is the cartesian product of $A$ and $B$. The measures $\mu$ and $\nu$ are called the "marginals" of $\pi$.
+
+\end{definition}
+
+In the Kantorovich formulation, instead of considering transfer maps we consider the set of product measures whose marginals are $\mu$ and $\nu$. We denote this set by $\Pi(\mu, \nu)$. Such measures are considered "feasible", and the product measure captures the idea of transporting mass starting at $\mu$ and ending at $\nu$.
+
+\begin{definition}[The Kantorovich problem]
+
+The Kantorovich formulation of optimal transport is given by the following equation:
+
+$$\inf_{\pi} \left\{ \int_{X \times Y} c(x, y) d \pi(x, y) : \pi \in \Pi(\mu, \nu) \right\}$$
+
+In this formulation, $\pi(x,y)$ is referred to as a \textit{transport plan}.
+
+\end{definition}
+
+In the Kantorovich formulation, we are searching for a product measure whose marginals are $\mu$ and $\nu$ and for which the total cost over the joint space $X \times Y$ is as small as possible. Because the transport map in the Kantorovich formulation need not be represented by a function, this means it is possible to split mass if necessary.
+
+\subsection{Transport properties}
+
+Transport maps and transport plans have a number of useful properties. 1-D transport maps are monotonic, meaning that they preserve the order of points from their source to their target measure spaces, and in higher dimensions they satisfy a more general property called "cyclical monotonicity".
+
+Transport maps and transport plans are also usually lipschitz continuous, and unique if the cost function is strictly convex. If the metric spaces $X$ and $Y$ are compact (equiv. closed and bounded) then both an optimal transport map and an optimal transport plan is guaranteed to exist, which can be proven using the extreme value theorem.
+
+\subsection{Cost functions}
+
+It is possible to consider a wide range of cost functions in optimal transport problems. The most common examples are the $L^2$ norm $(x - y)^2$, and more generally the $L^p$ norm $|x-y|^p$. The $L^1$ norm is not strictly convex, and so it is used less often as the uniqueness of the optimal transport map no longer holds.
+
+You can also use cross-entropy as a cost function, given by $c(x,y) = -\log(p(y|x))$ where $p(y|x)$ is a conditional probability function. This cost function is commonly used in machine learning. You can also define cost functions on graphs/networks, and in that case it things like the length of the shortest path between two nodes are used.
+
+\section{The Wasserstein distance}
+
+One important feature of optimal transport is that it can be used to define a metric on a space of probability measures. Usually we compare probability distributions using the Kullback-Liebler divergence, however this has the disadvantage that it is not symmetric which means that the resulting function is not a metric.
+
+However, it turns out that if we compare distributions $\mu$ and $\nu$ using the minimum $L^p$ cost necessary for an optimal transport plan to shift from $\mu$ to $\nu$, this quantity is called the Wasserstein distance $W_p(\mu, \nu)$.
+
+\begin{definition}[The Wasserstein distance]
+
+Given two measures $\mu$, $\nu$ and metric spaces $X$ and $Y$ respectively and for $p \in [1, \infty)$, we define the $p$-Wasserstein distance to be:
+
+$$W_p(\mu, \nu) = \inf_{T_\# \mu = \nu} \left(\int_X \|x-T(x)\|_p d\mu(x) \right)^{\frac{1}{p}}$$
+
+in the Monge formulation, or in the Kantorovich formulation:
+
+$$W_p(\mu, \nu) = \inf_{\pi \in \Pi(\mu,\nu)} \left( \int_{X \times Y} \|x-y\|_p d\pi(x,y) \right)^{\frac{1}{p}}$$
+
+\end{definition}
+
+\subsection{The Wasserstein metric}
+
+Given either definition, the metric axioms can all be shown to hold. Namely:
+
+\begin{enumerate}
+\item For any two probability measures $\mu$ and $\nu$, the Wasserstein distance $W_p(\mu, \nu)$ is non-negative: $W_p(\mu, \nu) \geq 0$.
+\item The Wasserstein distance between a probability measure $\mu$ and itself is zero: $W_p(\mu, \mu) = 0$.
+\item The Wasserstein distance is symmetric with respect to its arguments: $W_p(\mu, \nu) = W_p(\nu, \mu)$.
+\item The Wasserstein distance satisfies the triangle inequality, meaning that for any three probability measures $\mu$, $\nu$, and $\sigma$, we have: $W_p(\mu, \sigma) \leq W_p(\mu, \nu) + W_p(\nu, \sigma)$.
+\end{enumerate}
+
+Non-negativity holds because the Wasserstein distance is an integral of a positive quantity (the $L_p$ norm). (2) holds in the Monge formulation because $x = T(x)$ and so $\|x - T(x)\|_p = 0$ for all $x$, and similarly for the Kantorovich formulation we have $\|x - x\|_p = 0$.
+
+Symmetry holds for the Monge formulation because cost functions are symmetric, you simply need to do a change of variables to show this, but in the Kantorovich formulation this is more straightforward.
+
+The Triangle Inequality holds in the Monge formulation ultimately because it holds in $L_p$ spaces, and the same is true of the Kantorovich formulation but you need to use more machinery such as the gluing lemma in order to complete the proof.
+
+In addition to these properties, the Wasserstein distance is also continuous and convex. In other words $$W_p(\lambda\mu_1+(1-\lambda)\mu_2,\lambda\nu_1+(1-\lambda)\nu_2)\leq \lambda W_p(\mu_1,\nu_1)+(1-\lambda)W_p(\mu_2,\nu_2)$$ for any probability measures $\mu_1$, $\mu_2$, $\nu_1$, $\nu_2$, and any $0\leq \lambda \leq 1$.
+
+% \subsection{Applications}
+
+% The Wasserstein metric has a range of applications, including:
+
+% \begin{enumerate}
+% \item Image and signal processing: The Wasserstein metric is used for image registration, image synthesis, and image retrieval. It can be used to measure the distance between two images or signals, taking into account the underlying structure of the data.
+
+% \item Computer vision and machine learning: The Wasserstein metric is used for object recognition, image classification, and clustering. It can be used to measure the similarity between two sets of features or to compare the distribution of features across different data sets.
+
+% \item Probability theory and statistics: The Wasserstein metric is used for probability density estimation, goodness-of-fit testing, and statistical inference. It can be used to measure the distance between two probability distributions and to compare the performance of different statistical models.
+
+% \item Economics and finance: The Wasserstein metric is used for portfolio optimization, risk management, and pricing of financial assets. It can be used to measure the distance between two financial portfolios or to estimate the risk of a financial instrument.
+
+% \item Neuroscience: The Wasserstein metric is used for analyzing brain connectivity, measuring the distance between neuronal spike trains, and modeling neural activity. It can be used to identify functional networks in the brain and to compare the activity patterns of different brain regions.
+% \end{enumerate}
+
+\section{Kantorovich-Rubinstein Duality}
+
+The Kantorovich-Rubinstein duality is a connection between two different formulations of the optimal transport problem. In particular, it relates the Wasserstein distance between two probability measures to a supremum of the difference of expectations of certain functions.
+
+Suppose we have a probability measure $p$ and a parametrised model $p_\theta$ approximating $p$ on some space $X$. The Wasserstein distance $W(p, p_\theta)$ is given by:
+
+$$W(p, p_\theta) = \inf_{\pi \in \Pi(p, p_\theta)} \mathbb{E}_{(x, y) \sim \pi} [|x - y|_2]$$
+
+where $\Pi(p, p_\theta)$ denotes the set of joint probability measures with marginals $p$ and $p_\theta$. This infimum is difficult to compute directly.
+
+The Kantorovich-Rubinstein duality provides an alternative formulation of $W(p, q)$ that is easier to work with. Specifically, it states that
+
+$$W(p, p_\theta) = \sup_{\|h\|_L \leq 1} \left[\mathbb{E}_{x \sim p}[h(x)] - \mathbb{E}_{y \sim p_\theta}[h(y)]\right]$$
+
+where the supremum is taken over all $L$-Lipschitz functions $h$ with Lipschitz constant $L \leq 1$. Here, $\mathcal{H}$ denotes the set of all such functions.
+
+Intuitively, the duality expresses the Wasserstein distance between $p$ and $p_\theta$ as the largest difference in expectations of certain functions $h$ that satisfy the Lipschitz constraint. The dual formulation is often easier to compute since it only involves optimizing over a set of functions rather than a set of joint probability measures.
+
+To see why the duality holds, note that it follows from a more general result in convex analysis known as Fenchel duality. The key idea is to use the Kantorovich-Rubinstein theorem to construct a convex dual problem whose optimal value is equal to the Wasserstein distance. This allows us to solve the original problem by solving the dual problem instead, which is often simpler or more tractable.
